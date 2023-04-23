@@ -11,6 +11,7 @@ import ReactFlow, {
   removeElements,
 } from "reactflow";
 
+import { Button as dButton, Checkbox, Form, Input } from 'antd';
 import "reactflow/dist/style.css";
 import Navbar from "./components/Navbar";
 import * as React from "react";
@@ -79,7 +80,6 @@ function inverseMod(num, m) {
 
 const initialEdges = [];
 var nodeId = 0;
-var root = null;
 var adj = {};
 var radj = {};
 var val = {};
@@ -213,10 +213,6 @@ function Flow(props) {
       fn : [],
       subSecretKey: generateRandomKey(), // si
     }
-    if (root === null) {
-      //  set the root node
-      root = id;
-    }
     adj[id] = [];
     radj[id] = [];
     val[id] = nodeVal;
@@ -275,7 +271,10 @@ function Flow(props) {
     setEdges((eds) => eds.filter((ed) => ed.id !== edge.id));
   };
   
-  
+  const onFinish = (values) => {
+    console.log('Success:', values);
+  };
+
   return (
     <Grid container sx={{ height: "100vh" }} spacing={2}>
       <Grid item xs={8}>
@@ -307,6 +306,9 @@ function Flow(props) {
         </Button>
         <div style={{ height: "100%" }}>
         <h1>Public Information</h1>
+          <div>
+            <b>p </b> : {ECDLPParameters.p}
+          </div>
         <h2> Base Points </h2>
           {
             // iterate through dictionary val
@@ -319,6 +321,34 @@ function Flow(props) {
             })
           }
         <h2> Polynomials </h2>
+        <Form
+          name="basic"
+          style={{ padding: 20 }}
+          onFinish={onFinish}
+          autoComplete="off"
+        >
+          <Form.Item
+            label="Security Class"
+            name="ID"
+            rules={[{ required: true, message: 'Please enter deriver class' }]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item
+            label="x-value"
+            name="x-value"
+            rules={[{ required: true, message: 'Please enter value to evaluate f(x) at!' }]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item wrapperCol={{ offset: 8, span: 16 }}>
+            <Button type="primary" htmlType="submit">
+              Submit
+            </Button>
+          </Form.Item>
+        </Form>
         <h1>Private Information</h1>
         <h2> Secret Keys </h2>
         {
