@@ -67,19 +67,20 @@ function inverseMod(num, m) {
 
 const initialEdges = [];
 var nodeId = 0;
+var root = null;
+var adj = {};
+var val = {};
 function Flow(props) {
   const reactFlowInstance = useReactFlow();
   const [nodes, setNodes] = useState(initialNodes); // use state variable for the nodes
   const [edges, setEdges] = useState(initialEdges); // use state variable for the edges
-  const [adj, setAdj] = useState({})
-  const [val, setVal] = useState({})
 
-  const [rootNode, setRootNode] = useState(null);
   const generateRandomKey = () => {
     return Math.floor(Math.random() * 1000000);
   };  
 
-  const groupAddition = (s, P, Q) => {
+  const groupAddition = (P, Q) => {
+    console.log(P, Q);
     const xp = parseInt(P.x, 10)
     const yp = parseInt(P.y, 10)
     const xq = parseInt(Q.x, 10)
@@ -88,6 +89,7 @@ function Flow(props) {
     const p = parseInt(ECDLPParameters.p, 10)
 
     let xr, yr
+    console.log("Entry")
     if (P === Q) {
         // P = Q case
         const lambda = (((3 * xp * xp + a) * inverseMod(2 * yp, p) % p) + p) % p;
@@ -99,6 +101,7 @@ function Flow(props) {
         xr = (lambda * lambda - xp - xq) % p
         yr = (lambda * (xp - xr) - yp) % p
     }
+    console.log("Exit")
     xr = (xr + p) % p; 
     yr = (yr + p) % p;
     return { x: xr, y: yr }
@@ -146,13 +149,14 @@ function Flow(props) {
   function recompute(id) {
     let visited = new Set();
     const psi = [];
+    const p = parseInt(ECDLPParameters.p, 10)
     const dfs = (v) => {
       if(visited.has(v)) return false;
       visited.add(v);
       console.log("DFS: ");
       console.log(v);
       console.log(val[v]);
-      psi.push(val[v].subSecretKey)
+      psi.push(val[v].subSecretKey % p)
       if(v == id){
         const nfn = [];
         for(let s of psi){
@@ -160,14 +164,15 @@ function Flow(props) {
           const concatStr = sG.x.toString(2) + sG.y.toString(2);
           nfn.push(parseInt(sha256(concatStr), 16))
         }
-        setVal(prevVals => { return {...prevVals, [id]: {...prevVals[id], fn: nfn}}; });
+        val[id].fn = nfn;
       }
       for(let to of adj[v])
         if(dfs(to)) return true;
       psi.pop();
       return false;
     }
-    dfs(rootNode);
+    dfs(root);
+    console.log(val)
   }
 
   //  adding a new security class 
@@ -175,12 +180,7 @@ function Flow(props) {
     (params) => {
       setEdges((eds) => addEdge(params, eds));
       const u = parseInt(params.source, 10), v = parseInt(params.target, 10);
-      setAdj(prevAdj => {
-        return {
-          ...prevAdj,
-          [u]: [...(prevAdj[u] || []), v],
-        };
-      });
+      adj[u].push(v);
       // Now, v is first updated with all ancestor information
       recompute(v);
       // Then, all descendants of v are updated
@@ -188,47 +188,6 @@ function Flow(props) {
   },
     []
   );
-  const dfs = (node, visited,visitedNodes) => {
-    //  store all the nodes that can be reached from the root node
-    visited[node.id] = true;
-    visitedNodes.push(node.id);
-    const filteredEdges = edges.filter((edge) => edge.source === node.id);
-    filteredEdges.forEach((edge) => {
-      const targetNode = nodes.filter((node) => node.id === edge.target);
-      if (!visited[targetNode.id]) {
-        dfs(targetNode, visited);
-      }
-    });
-  }
-  const insertNewClass = (id) => {
-    
-    let coefficients = keyGenerationPhase(id);
-    const Rik = buildRelationShip(id);
-    const nodek = nodes.filter((node) => node.id === id);
-    const copyNodes = [...nodes];
-    copyNodes[nodek].coefficients = coefficients;
-    setNodes(copyNodes);
-
-    let Rjk = [];
-    dfs(nodek,{},Rjk);
-
-    Rik.forEach((i) => {
-      const nodei = nodes.filter((node) => node.id === i);
-      let x = [];
-      let visited = {};
-      dfs(nodei,visited,x);
-      x.pop();
-      Rjk.forEach((j) => {
-        if (x.includes(j)) {
-          const copyNodes = [...nodes];
-          const nodej = copyNodes.filter((node) => node.id === j);
-          const coefficients = keyGenerationPhase(j);
-          copyNodes[nodej].coefficients = coefficients ;
-          setNodes(copyNodes);
-        }
-      });
-    });
-  };
   
   const addNode = useCallback(() => {
     const id = `${++nodeId}`;
@@ -250,21 +209,15 @@ function Flow(props) {
       fn : [],
       subSecretKey: generateRandomKey(), // si
     }
-    if (rootNode == null) {
+    console.log("Root: ", root)
+    if (root === null) {
       //  set the root node
-      setRootNode(id);
+      root = id;
     }
-    setAdj(prevAdj => { return {...prevAdj, [id]: [] }; } );
-    setVal(prevVals => { return {...prevVals, [id]: nodeVal}; });
+    adj[id] = [];
+    val[id] = nodeVal;
     reactFlowInstance.addNodes(newNode);
   }, []);
-
-  useEffect(() => {
-    console.log(val);
-  }, [val]);
-  useEffect(() => {
-    console.log(rootNode);
-  }, [rootNode]);
 
   function displayInfo() {
     console.log(nodes);
