@@ -71,6 +71,8 @@ function Flow(props) {
   const reactFlowInstance = useReactFlow();
   const [nodes, setNodes] = useState(initialNodes); // use state variable for the nodes
   const [edges, setEdges] = useState(initialEdges); // use state variable for the edges
+  const [adj, setAdj] = useState({})
+  const [val, setVal] = useState({})
 
   const [rootNode, setRootNode] = useState(null);
   const generateRandomKey = () => {
@@ -86,7 +88,6 @@ function Flow(props) {
     const p = parseInt(ECDLPParameters.p, 10)
 
     let xr, yr
-
     if (P === Q) {
         // P = Q case
         const lambda = (((3 * xp * xp + a) * inverseMod(2 * yp, p) % p) + p) % p;
@@ -119,7 +120,6 @@ function Flow(props) {
     return []
   }
   const keyGenerationPhase = (j) => {
-
     const filteredEdges = buildRelationShip(j); 
     const nodej = nodes.filter((node) => node.id === j);
     // make an array for all edges
@@ -142,10 +142,49 @@ function Flow(props) {
     });
     return coefficients;
   }
+
+  function recompute(id) {
+    let visited = new Set();
+    const psi = [];
+    const dfs = (v) => {
+      if(visited.has(v)) return false;
+      visited.add(v);
+      console.log("DFS: ");
+      console.log(v);
+      console.log(val[v]);
+      psi.push(val[v].subSecretKey)
+      if(v == id){
+        const nfn = [];
+        for(let s of psi){
+          const sG = groupMultiplication(s, val[v].basePoint);
+          const concatStr = sG.x.toString(2) + sG.y.toString(2);
+          nfn.push(parseInt(sha256(concatStr), 16))
+        }
+        setVal(prevVals => { return {...prevVals, [id]: {...prevVals[id], fn: nfn}}; });
+      }
+      for(let to of adj[v])
+        if(dfs(to)) return true;
+      psi.pop();
+      return false;
+    }
+    dfs(rootNode);
+  }
+
   //  adding a new security class 
   const onConnect = useCallback(
     (params) => {
-      setEdges((eds) => addEdge(params, eds))
+      setEdges((eds) => addEdge(params, eds));
+      const u = parseInt(params.source, 10), v = parseInt(params.target, 10);
+      setAdj(prevAdj => {
+        return {
+          ...prevAdj,
+          [u]: [...(prevAdj[u] || []), v],
+        };
+      });
+      // Now, v is first updated with all ancestor information
+      recompute(v);
+      // Then, all descendants of v are updated
+      // propagate(v);
   },
     []
   );
@@ -193,26 +232,39 @@ function Flow(props) {
   
   const addNode = useCallback(() => {
     const id = `${++nodeId}`;
+    const secretKey = generateRandomKey();
     const newNode = {
       id,
       position: {
         x: 500,
         y: 500,
       },
-      functionCoefficients : keyGenerationPhase(id),
-      basePoint : ECDLPParameters.points[Math.floor(Math.random() * ECDLPParameters.points.length)],
-      secretKey: generateRandomKey(), // ski
-      subSecretKey: generateRandomKey(), // si
       data: {
         label: `SC ${id}`,
       },
     };
+    const nodeVal = {
+      id: id,
+      basePoint : ECDLPParameters.points[Math.floor(Math.random() * ECDLPParameters.points.length)],
+      secretKey: secretKey, // ski
+      fn : [],
+      subSecretKey: generateRandomKey(), // si
+    }
     if (rootNode == null) {
       //  set the root node
-      setRootNode(newNode);
+      setRootNode(id);
     }
+    setAdj(prevAdj => { return {...prevAdj, [id]: [] }; } );
+    setVal(prevVals => { return {...prevVals, [id]: nodeVal}; });
     reactFlowInstance.addNodes(newNode);
   }, []);
+
+  useEffect(() => {
+    console.log(val);
+  }, [val]);
+  useEffect(() => {
+    console.log(rootNode);
+  }, [rootNode]);
 
   function displayInfo() {
     console.log(nodes);
