@@ -262,7 +262,17 @@ function Flow(props) {
     );
     setEdges((eds) => eds.filter((edge) => !edgesToDelete.includes(edge)));
 
+    let visited = new Set();
+    const dfs = (v) => {
+      if(visited.has(v)) return;
+      visited.add(v);
+      val[v].secretKey = generateRandomKey();
+      for(let to of adj[v])
+        if(dfs(to)) return;
+    }
     let xd = parseInt(id, 10);
+    dfs(xd);
+
     delete val[xd];
     for(let to of adj[xd]){
       var index = radj[to].indexOf(xd);
