@@ -56,6 +56,15 @@ const ECDLPParameters = {
   ],
 };
 
+function inverseMod(num, m) {
+  let [a, b, x, y] = [num, m, 1, 0];
+  while (a !== 1) {
+    const q = Math.floor(b / a);
+    [a, b, x, y] = [b % a, a, y - q * x, x];
+  }
+  return (x % m + m) % m;
+}
+
 const initialEdges = [];
 var nodeId = 0;
 function Flow(props) {
@@ -67,23 +76,40 @@ function Flow(props) {
   const generateRandomKey = () => {
     return Math.floor(Math.random() * 1000000);
   };  
-  const groupAddition = (s,G) => {
-    //  P = Q case only 
-    const xp = parseInt(G.x,10)
-    const yp = parseInt(G.y,10)
-    const a = parseInt(ECDLPParameters.a,10)
-    const p = parseInt(ECDLPParameters.p,10)
 
-    const lambda = parseInt((Math.floor((3 * xp * xp + a)/2*yp )) % p,10)
-    const xr = (lambda * lambda - 2 * xp) % p
-    const yr = (lambda * (xp - xr) - yp) % p
-    return {x:xr,y:yr}
+  const groupAddition = (s, P, Q) => {
+    const xp = parseInt(P.x, 10)
+    const yp = parseInt(P.y, 10)
+    const xq = parseInt(Q.x, 10)
+    const yq = parseInt(Q.y, 10)
+    const a = parseInt(ECDLPParameters.a, 10)
+    const p = parseInt(ECDLPParameters.p, 10)
+
+    let xr, yr
+
+    if (P === Q) {
+        // P = Q case
+        const lambda = (((3 * xp * xp + a) * inverseMod(2 * yp, p) % p) + p) % p;
+        xr = (lambda * lambda - xp - xq) % p
+        yr = (lambda * (xp - xr) - yp) % p
+    } else {
+        // P != Q case
+        const lambda = ((((yq - yp) * inverseMod(xq - xp, p) % p) + p) % p);
+        xr = (lambda * lambda - xp - xq) % p
+        yr = (lambda * (xp - xr) - yp) % p
+    }
+    xr = (xr + p) % p; 
+    yr = (yr + p) % p;
+    return { x: xr, y: yr }
   }
+
+
   const groupMultiplication = (s,G) => {
     // perform multiplication by repeated addition
-    let result = {x:0,y:0};
-    for (let i = 0; i < s; i++) {
-      result = groupAddition(result,G);
+    if(s == 1) return G;
+    let result = G;
+    for (let i = 1; i < s; i++) {
+      result = groupAddition(result, G);
     }
     return result; 
   }
