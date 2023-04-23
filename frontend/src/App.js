@@ -305,6 +305,44 @@ function Flow(props) {
           {" "}
           Display Info{" "}
         </Button>
+        <div style={{ height: "100%" }}>
+        <h1>Public Information</h1>
+        <h2> Base Points </h2>
+          {
+            // iterate through dictionary val
+            Object.keys(val).map((key) => {
+              return (
+                <div>
+                  <b>SC {val[key].id} </b> : {val[key].basePoint.x}, {val[key].basePoint.y}
+                </div>
+              );
+            })
+          }
+        <h2> Polynomials </h2>
+        <h1>Private Information</h1>
+        <h2> Secret Keys </h2>
+        {
+            // iterate through dictionary val
+            Object.keys(val).map((key) => {
+              return (
+                <div>
+                  <b>SC {val[key].id} </b> : {val[key].secretKey}
+                </div>
+              );
+            })
+          }
+        <h2> Sub-Secret Keys </h2>
+        {
+            // iterate through dictionary val
+            Object.keys(val).map((key) => {
+              return (
+                <div>
+                  <b>SC {val[key].id} </b> : {val[key].subSecretKey}
+                </div>
+              );
+            })
+          }
+        </div>
       </Grid>
     </Grid>
   );
