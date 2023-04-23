@@ -83,6 +83,8 @@ var nodeId = 0;
 var adj = {};
 var radj = {};
 var val = {};
+var alive = new Set();
+
 function Flow(props) {
   const reactFlowInstance = useReactFlow();
   const [nodes, setNodes] = useState(initialNodes); // use state variable for the nodes
@@ -175,7 +177,14 @@ function Flow(props) {
       const concatStr = sG.x.toString(2) + sG.y.toString(2);
       nfn.push(parseInt(sha256(concatStr), 16))
     }
+    val[id].xd = psi;
     val[id].fn = nfn;
+  }
+
+  function update_all() {
+    for(const item of alive){
+      recompute(item);
+    }
   }
 
   //  adding a new security class 
@@ -186,7 +195,7 @@ function Flow(props) {
       adj[u].push(v);
       radj[v].push(u)
       // Now, v is first updated with all ancestor information
-      recompute(v);
+      update_all();
       // Then, all descendants of v are updated
       // propagate(v);
   },
@@ -195,6 +204,7 @@ function Flow(props) {
   
   const addNode = useCallback(() => {
     const id = `${++nodeId}`;
+    const num_id = parseInt(id, 10);
     const secretKey = generateRandomKey();
     const newNode = {
       id,
@@ -207,22 +217,24 @@ function Flow(props) {
       },
     };
     const nodeVal = {
-      id: id,
+      id: num_id,
       basePoint : ECDLPParameters.points[Math.floor(Math.random() * ECDLPParameters.points.length)],
       secretKey: secretKey, // ski
       fn : [],
+      xd : [],
       subSecretKey: generateRandomKey(), // si
     }
-    adj[id] = [];
-    radj[id] = [];
-    val[id] = nodeVal;
-    recompute(id);
+    adj[num_id] = [];
+    radj[num_id] = [];
+    val[num_id] = nodeVal;
+    update_all();
+    alive.add(num_id);
     reactFlowInstance.addNodes(newNode);
   }, []);
 
   function displayInfo() {
-    console.log(nodes);
-    console.log(val);
+    console.log(adj);
+    console.log(radj);
     console.log(edges);
   }
   const deleteNodeById = (id) => {
@@ -249,6 +261,18 @@ function Flow(props) {
       (edge) => edge.source === id || edge.target === id
     );
     setEdges((eds) => eds.filter((edge) => !edgesToDelete.includes(edge)));
+
+    let xd = parseInt(id, 10);
+    delete val[xd];
+    for(let to of adj[xd]){
+      var index = radj[to].indexOf(xd);
+      console.log(to, xd, index);
+      if(index !== -1)
+        radj[to].splice(index, 1);
+    }
+    delete adj[xd];
+    alive.delete(xd);
+    update_all();
   };
 
   const onNodesChange = useCallback(
@@ -272,7 +296,24 @@ function Flow(props) {
   };
   
   const onFinish = (values) => {
-    console.log('Success:', values);
+    let node = parseInt(values["ID"], 10);
+    let x = parseInt(values["x-value"], 10);
+    
+    let ans = 1;
+    console.log(alive)
+    if(alive.has(node)){
+      for(let s of val[node].xd){
+        const sG = groupMultiplication(s, val[node].basePoint);
+        const concatStr = sG.x.toString(2) + sG.y.toString(2);
+        let term = parseInt(sha256(concatStr), 16);
+        ans *= (x - term);
+        ans += val[node].secretKey;
+      }
+      alert(`f(${x}) = ${ans}`);
+    }
+    else {
+      window.alert('Security Class does not exist');
+    }
   };
 
   return (
