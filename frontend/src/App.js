@@ -56,19 +56,32 @@ const ECDLPParameters = {
   ],
 };
 
-function inverseMod(num, m) {
-  let [a, b, x, y] = [num, m, 1, 0];
-  while (a !== 1) {
-    const q = Math.floor(b / a);
-    [a, b, x, y] = [b % a, a, y - q * x, x];
+function modExp(base, exponent, modulus) {
+  if (modulus === 1) {
+    return 0;
   }
-  return (x % m + m) % m;
+  let result = 1;
+  base = base % modulus;
+  while (exponent > 0) {
+    if (exponent % 2 === 1) {
+      result = (result * base) % modulus;
+    }
+    exponent = Math.floor(exponent / 2);
+    base = (base * base) % modulus;
+  }
+  return result;
+}
+
+function inverseMod(num, m) {
+  if (m === 1) return 0;
+  return modExp(num, m - 2, m);
 }
 
 const initialEdges = [];
 var nodeId = 0;
 var root = null;
 var adj = {};
+var radj = {};
 var val = {};
 function Flow(props) {
   const reactFlowInstance = useReactFlow();
@@ -80,7 +93,6 @@ function Flow(props) {
   };  
 
   const groupAddition = (P, Q) => {
-    console.log(P, Q);
     const xp = parseInt(P.x, 10)
     const yp = parseInt(P.y, 10)
     const xq = parseInt(Q.x, 10)
@@ -89,7 +101,6 @@ function Flow(props) {
     const p = parseInt(ECDLPParameters.p, 10)
 
     let xr, yr
-    console.log("Entry")
     if (P === Q) {
         // P = Q case
         const lambda = (((3 * xp * xp + a) * inverseMod(2 * yp, p) % p) + p) % p;
@@ -101,7 +112,6 @@ function Flow(props) {
         xr = (lambda * lambda - xp - xq) % p
         yr = (lambda * (xp - xr) - yp) % p
     }
-    console.log("Exit")
     xr = (xr + p) % p; 
     yr = (yr + p) % p;
     return { x: xr, y: yr }
@@ -153,26 +163,19 @@ function Flow(props) {
     const dfs = (v) => {
       if(visited.has(v)) return false;
       visited.add(v);
-      console.log("DFS: ");
-      console.log(v);
-      console.log(val[v]);
       psi.push(val[v].subSecretKey % p)
-      if(v == id){
-        const nfn = [];
-        for(let s of psi){
-          const sG = groupMultiplication(s, val[v].basePoint);
-          const concatStr = sG.x.toString(2) + sG.y.toString(2);
-          nfn.push(parseInt(sha256(concatStr), 16))
-        }
-        val[id].fn = nfn;
-      }
-      for(let to of adj[v])
+      for(let to of radj[v])
         if(dfs(to)) return true;
-      psi.pop();
       return false;
     }
-    dfs(root);
-    console.log(val)
+    dfs(id);
+    const nfn = [];
+    for(let s of psi){
+      const sG = groupMultiplication(s, val[id].basePoint);
+      const concatStr = sG.x.toString(2) + sG.y.toString(2);
+      nfn.push(parseInt(sha256(concatStr), 16))
+    }
+    val[id].fn = nfn;
   }
 
   //  adding a new security class 
@@ -181,6 +184,7 @@ function Flow(props) {
       setEdges((eds) => addEdge(params, eds));
       const u = parseInt(params.source, 10), v = parseInt(params.target, 10);
       adj[u].push(v);
+      radj[v].push(u)
       // Now, v is first updated with all ancestor information
       recompute(v);
       // Then, all descendants of v are updated
@@ -209,18 +213,20 @@ function Flow(props) {
       fn : [],
       subSecretKey: generateRandomKey(), // si
     }
-    console.log("Root: ", root)
     if (root === null) {
       //  set the root node
       root = id;
     }
     adj[id] = [];
+    radj[id] = [];
     val[id] = nodeVal;
+    recompute(id);
     reactFlowInstance.addNodes(newNode);
   }, []);
 
   function displayInfo() {
     console.log(nodes);
+    console.log(val);
     console.log(edges);
   }
   const deleteNodeById = (id) => {
