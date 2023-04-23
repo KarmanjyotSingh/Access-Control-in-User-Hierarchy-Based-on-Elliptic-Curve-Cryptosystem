@@ -22,12 +22,18 @@ import Button from "@mui/material/Button";
 const initialNodes = [];
 
 const ECDLPParameters = {
-  p: 23,
+  p: 281,
   a: 1,
   b: 1,
   points: [
-    { x: 0, y: 1 },
-    { x: 1, y: 16 },
+    { x: 1, y: 29 },
+    { x: 1, y: 252 },
+    { x: 2, y: 132 },
+    { x: 2, y: 149 },
+    { x: 3, y: 115 },
+    { x: 1, y: 252 },
+    { x: 1, y: 252 },
+    { x: 1, y: 252 },
     { x: 4, y: 0 },
     { x: 6, y: 4 },
     { x: 7, y: 12 },
@@ -294,6 +300,22 @@ function Flow(props) {
           {" "}
           Display Info{" "}
         </Button>
+        <div style={{ height: "100%" }}>
+        <h1>Public Information</h1>
+        <h2> Base Points </h2>
+          {ECDLPParameters.points.map((point, index) => {
+            for (let i = 0; i < nodes.length; i++) {
+              if (nodes[i].id == index) {
+                return (
+                  <div>
+                    <b>Node {index}</b> : ({point.x},{point.y})
+                  </div>
+                );
+              }
+            }
+          }
+          )}
+        </div>
       </Grid>
     </Grid>
   );
