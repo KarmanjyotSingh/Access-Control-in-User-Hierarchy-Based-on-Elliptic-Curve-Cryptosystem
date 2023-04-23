@@ -267,6 +267,8 @@ function Flow(props) {
       if(visited.has(v)) return;
       visited.add(v);
       val[v].secretKey = generateRandomKey();
+      val[v].subSecretKey = generateRandomKey();
+      val[v].basePoint = ECDLPParameters.points[Math.floor(Math.random() * ECDLPParameters.points.length)];
       for(let to of adj[v])
         if(dfs(to)) return;
     }
